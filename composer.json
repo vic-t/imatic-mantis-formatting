@@ -11,6 +11,11 @@
   "config": {
     "allow-plugins": {
       "composer/installers": true
+    },
+    "policy": {
+      "advisories": {
+        "block": false
+      }
     }
   }
 }
