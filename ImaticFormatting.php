@@ -224,6 +224,14 @@ class ImaticFormattingPlugin extends MantisPlugin
 
     public function is_enabled()
     {
+        # On pages without a real logged-in user (e.g. login_page.php) calling
+        # auth_get_current_user_id() triggers access_denied() in MantisBT >= 2.28
+        # (invalid/empty cookie) which redirects to login_page.php -> redirect loop.
+        # Default to enabled when there is no authenticated non-anonymous user.
+        if (!auth_is_user_authenticated() || current_user_is_anonymous()) {
+            return true;
+        }
+
         $user_setting = config_get(
             self::TOASTUI_ENABLED,
             null,
