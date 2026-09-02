@@ -8,10 +8,14 @@ Converts markdown into html.
 
 ## Installation
 
+Run this from the MantisBT 2.28.4 installation directory:
+
+```shell
+composer require imatic-it/imatic-formatting:dev-master
 ```
-composer config --unset platform.php
-composer require imatic-it/imatic-formatting
-```
+
+Alternatively, place the plugin in `plugins/ImaticFormatting` and run
+`composer install --no-dev` in that directory.
 
 ## Code highlighting
 
@@ -93,7 +97,7 @@ The plugin provides **test pages** where you can see how your Markdown and HTML 
    `Manage -> Manage Plugins -> Imatic Formatting`
 
 2. Click on **"Test Issue Formatting Preview"** or open directly:
-   [/plugin.php?page=ImaticFormatting/test-issue-previews.php](./plugin.php?page=ImaticFormatting/test-issue-previews.php)
+   [/plugin.php?page=ImaticFormatting/test-issue-previews](./plugin.php?page=ImaticFormatting/test-issue-previews)
 
 3. You will find several preview sections:
 

@@ -11,9 +11,11 @@ print_manage_menu('manage_plugin_page.php');
 
 <?php
 
-$plugin = plugin_get('ImaticFormatting');
-$pluginPageTest = plugin_page('test-issue-previews.php');
+$pluginPageTest = plugin_page('test-issue-previews');
 
 echo '<div class="container"><div class="row"><div class="col-md-12">';
 echo '<h2 class="text-info"><span class="glyphicon glyphicon-link"></span> Test Issue formatting preview</h2>';
 echo '<a href="' . $pluginPageTest . '">' . $pluginPageTest . '</a>';
+echo '</div></div></div>';
+
+layout_page_end();

@@ -1,13 +1,14 @@
 <?php
 
-require_once __DIR__ . '/vendor/autoload.php';
+$autoload = __DIR__ . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+}
 
-use League\CommonMark\CommonMarkConverter;
-use League\CommonMark\Environment;
+use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\InlinesOnly\InlinesOnlyExtension;
-use League\CommonMark\GithubFlavoredMarkdownConverter;
+use League\CommonMark\MarkdownConverter;
 use League\CommonMark\MarkdownConverterInterface;
-use League\CommonMark\EnvironmentInterface;
 
 class ImaticFormattingPlugin extends MantisPlugin
 {
@@ -16,7 +17,7 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.2.1';
+        $this->version = '0.3.0';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];
@@ -69,12 +70,12 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         static $converter = null;
         if ($converter === null) {
-            $environment = new Environment();
-            $environment->addExtension(new InlinesOnlyExtension());
-            $converter = new CommonMarkConverter([
+            $environment = new Environment([
                 'html_input' => 'escape',
                 'allow_unsafe_links' => false,
-            ], $environment);
+            ]);
+            $environment->addExtension(new InlinesOnlyExtension());
+            $converter = new MarkdownConverter($environment);
         }
 
         return $converter;
@@ -90,7 +91,7 @@ class ImaticFormattingPlugin extends MantisPlugin
             // one in a list item.
             require_once __DIR__ . '/inc/Checkbox/CheckboxMarkdown.php';
             $converter = \ImaticFormatting\Checkbox\CheckboxMarkdown::createConverter([
-                'html_input' => EnvironmentInterface::HTML_INPUT_ALLOW,
+                'html_input' => 'allow',
                 'allow_unsafe_links' => false,
             ]);
         }
@@ -159,20 +160,20 @@ class ImaticFormattingPlugin extends MantisPlugin
     }
 
 
-    public function convert(string $text): string
+    public function convert(string $text, bool $multiline = true): string
     {
-        if ($this->isHtmlEmail($text)) {
+        if ($multiline && $this->isHtmlEmail($text)) {
             $html = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $html = preg_replace('#<script[^>]*>.*?</script>#is', '', $html);
             return '<iframe srcdoc="' . htmlspecialchars($html, ENT_QUOTES, 'UTF-8') . '" style="width:100%;min-height:500px;border:none;" sandbox="allow-same-origin" loading="lazy"></iframe>';
         }
 
-        $converter = $this->getConverter();
+        $converter = $this->getConverter($multiline);
 
         return string_process_bugnote_link(
             string_process_bug_link(
                 mention_format_text(
-                    $converter->convertToHtml($text)
+                    (string)$converter->convert($text)
                 )
             )
         );
@@ -180,7 +181,7 @@ class ImaticFormattingPlugin extends MantisPlugin
 
     public function display_formatted_hook($p_event, $p_string, $p_multiline = true)
     {
-        return $this->convert($p_string);
+        return $this->convert($p_string, (bool)$p_multiline);
     }
 
     private function getConverter($p_multiline = true): MarkdownConverterInterface
@@ -210,32 +211,36 @@ class ImaticFormattingPlugin extends MantisPlugin
             '<label for="ToastUIEnabled">Toast UI</label>' .
             '</td>' .
             '<td>' .
-            '<input id="ToastUIEnabled" type="checkbox" name="' . self::TOASTUI_ENABLED . '" value="1" ' . ($this->is_enabled() ? 'checked' : '') . '/>' .
+            '<input id="ToastUIEnabled" type="checkbox" name="' . self::TOASTUI_ENABLED . '" value="1" ' . ($this->is_enabled($p_user_id) ? 'checked' : '') . '/>' .
             '</td>' .
             '</tr>';
     }
 
     public function account_update($p_event, $p_user_id)
     {
-        $value = gpc_get(self::TOASTUI_ENABLED, null);
+        $value = gpc_get_bool(self::TOASTUI_ENABLED, false);
 
-        config_set(self::TOASTUI_ENABLED, $value, $p_user_id, ALL_PROJECTS);
+        config_set(self::TOASTUI_ENABLED, (int)$value, $p_user_id, ALL_PROJECTS);
     }
 
-    public function is_enabled()
+    public function is_enabled($p_user_id = null)
     {
         # On pages without a real logged-in user (e.g. login_page.php) calling
         # auth_get_current_user_id() triggers access_denied() in MantisBT >= 2.28
         # (invalid/empty cookie) which redirects to login_page.php -> redirect loop.
         # Default to enabled when there is no authenticated non-anonymous user.
-        if (!auth_is_user_authenticated() || current_user_is_anonymous()) {
-            return true;
+        if ($p_user_id === null) {
+            if (!auth_is_user_authenticated() || current_user_is_anonymous()) {
+                return true;
+            }
+
+            $p_user_id = auth_get_current_user_id();
         }
 
         $user_setting = config_get(
             self::TOASTUI_ENABLED,
             null,
-            auth_get_current_user_id(),
+            $p_user_id,
             ALL_PROJECTS
         );
 
