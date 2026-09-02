@@ -402,3 +402,18 @@
     background-color: #232428;
     color: #eee;
 }
+
+.toastui-editor-dark .toastui-editor-contents table tbody tr,
+.toastui-editor-dark .toastui-editor-contents table tbody td {
+    background-color: #121212 !important;
+    color: #fff;
+}
+
+.toastui-editor-dark .toastui-editor-contents table thead th {
+    background-color: #3a3c42 !important;
+}
+
+.toastui-editor-dark.toastui-editor-defaultUI .toastui-editor-md-tab-container {
+    background: #232428 !important;
+    border-bottom-color: #303238;
+}

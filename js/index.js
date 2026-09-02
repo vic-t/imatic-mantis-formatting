@@ -71,7 +71,7 @@ function initEditor(textArea, settings, onReady) {
         toolbarItems: settings.options.toolbarItems || [
             ['heading', 'bold', 'italic', 'strike'],
             ['hr', 'quote', 'ul', 'ol', 'task'],
-            ['table', 'link', 'image'],
+            ['table', 'link'],
             ['code', 'codeblock'],
             ['scrollSync']
         ],
