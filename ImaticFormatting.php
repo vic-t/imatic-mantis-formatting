@@ -17,7 +17,7 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.3.5';
+        $this->version = '0.3.6';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];
@@ -47,6 +47,7 @@ class ImaticFormattingPlugin extends MantisPlugin
                 'enabled' => true,
                 'textAreas' => [
                     'description',
+                    'steps_to_reproduce',
                     'additional_info',
                     'additional_information',
                     'bugnote_text'
