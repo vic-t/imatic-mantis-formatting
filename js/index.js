@@ -6,6 +6,41 @@ import '@toast-ui/editor/dist/toastui-editor.css';
 import '@toast-ui/editor/dist/theme/toastui-editor-dark.css';
 import Editor from '@toast-ui/editor';
 
+function trimMarkdownDoubleClickSelection(editorContent) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) return;
+
+    const range = selection.getRangeAt(0);
+    if (!editorContent.contains(range.commonAncestorContainer)) return;
+
+    const selectedText = range.toString();
+    const trailingWhitespace = selectedText.match(/[ \t\u00a0]+$/);
+    if (!trailingWhitespace) return;
+
+    let remaining = trailingWhitespace[0].length;
+    const textNodes = [];
+    const walker = document.createTreeWalker(editorContent, NodeFilter.SHOW_TEXT);
+    let node;
+
+    while ((node = walker.nextNode())) {
+        if (range.intersectsNode(node)) textNodes.push(node);
+    }
+
+    for (let index = textNodes.length - 1; index >= 0 && remaining > 0; index--) {
+        const textNode = textNodes[index];
+        const startOffset = textNode === range.startContainer ? range.startOffset : 0;
+        const endOffset = textNode === range.endContainer ? range.endOffset : textNode.data.length;
+        const selectedLength = endOffset - startOffset;
+
+        if (remaining <= selectedLength) {
+            range.setEnd(textNode, endOffset - remaining);
+            remaining = 0;
+        } else {
+            remaining -= selectedLength;
+        }
+    }
+}
+
 function initEditor(textArea, settings, onReady) {
 
     const editorBarOffset = 70;
@@ -53,6 +88,13 @@ function initEditor(textArea, settings, onReady) {
         textArea.dispatchEvent(new Event('input', { bubbles: true }));
         textArea.dispatchEvent(new Event('change', { bubbles: true }));
     });
+
+    const markdownEditor = editorContainer.querySelector('.toastui-editor-md-container .ProseMirror');
+    if (markdownEditor) {
+        markdownEditor.addEventListener('dblclick', () => {
+            window.requestAnimationFrame(() => trimMarkdownDoubleClickSelection(markdownEditor));
+        });
+    }
 
     createAutocomplete(editor, darkMode)
 
