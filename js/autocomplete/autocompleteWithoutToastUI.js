@@ -1,4 +1,5 @@
 import { getHandlerForMention } from "../utils/mentionDom";
+import { hasDarkBackground } from "../utils/theme";
 import Tribute from "tributejs";
 
 export function createAutocompleteWithoutToastUI(editor) {
@@ -63,6 +64,7 @@ export function createAutocompleteWithoutToastUI(editor) {
             return;
         }
 
+        const darkMode = hasDarkBackground(editorContent);
         const tribute = new Tribute({
             values: (text, cb) => {
                 const filtered = handlers
@@ -76,7 +78,7 @@ export function createAutocompleteWithoutToastUI(editor) {
             },
             trigger: '@',
             selectClass: 'tribute-highlight',
-            containerClass: `tribute-container-${index}`,
+            containerClass: `tribute-container-${index}${darkMode ? ' imatic-formatting-dark' : ''}`,
             itemClass: 'tribute-item',
             lookup: 'key',
             fillAttr: 'value',

@@ -390,3 +390,15 @@
 .tribute-container-3 {
     transform: translateY(5px);
 }
+
+[class^="tribute-container-"].imatic-formatting-dark {
+    background-color: #232428;
+    border-color: #494c56;
+    color: #eee;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+}
+
+[class^="tribute-container-"].imatic-formatting-dark .tribute-item:not(.tribute-highlight) {
+    background-color: #232428;
+    color: #eee;
+}

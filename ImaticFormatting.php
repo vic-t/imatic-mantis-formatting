@@ -17,7 +17,7 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.3.0';
+        $this->version = '0.3.1';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];

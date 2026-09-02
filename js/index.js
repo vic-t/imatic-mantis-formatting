@@ -1,7 +1,9 @@
 import { getSettings } from "./utils/mentionDom";
+import { hasDarkBackground } from "./utils/theme";
 import { createAutocomplete } from "./autocomplete";
 import { createAutocompleteWithoutToastUI } from "./autocomplete/autocompleteWithoutToastUI";
 import '@toast-ui/editor/dist/toastui-editor.css';
+import '@toast-ui/editor/dist/theme/toastui-editor-dark.css';
 import Editor from '@toast-ui/editor';
 
 function initEditor(textArea, settings, onReady) {
@@ -14,6 +16,7 @@ function initEditor(textArea, settings, onReady) {
 
     const computedStyle = window.getComputedStyle(textArea);
     const baseHeight = parseFloat(computedStyle.height);
+    const darkMode = hasDarkBackground(textArea);
 
     const heightValue = settings.options.height ? settings.options.height : baseHeight + editorBarOffset;
 
@@ -21,6 +24,7 @@ function initEditor(textArea, settings, onReady) {
 
     const editor = new Editor({
         el: editorContainer,
+        theme: darkMode ? 'dark' : 'light',
         initialEditType: settings.options.initialEditType || 'markdown',
         initialValue: savedText,
         previewStyle: settings.options.previewStyle || 'tab',
@@ -50,7 +54,7 @@ function initEditor(textArea, settings, onReady) {
         textArea.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
-    createAutocomplete(editor)
+    createAutocomplete(editor, darkMode)
 
     if (typeof onReady === 'function') {
         onReady(editor, editorContainer, computedStyle);

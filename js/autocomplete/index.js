@@ -2,7 +2,7 @@ import {getHandlerForMention} from "../utils/mentionDom";
 import {getCaretInfo} from "../utils/mentionUtils";
 import Tribute from "tributejs";
 
-export function createAutocomplete(editor) {
+export function createAutocomplete(editor, darkMode = false) {
     const handlers = getHandlerForMention();
     const editorContents = document.querySelectorAll('.toastui-editor .ProseMirror');
     const tributeInstances = [];
@@ -78,7 +78,7 @@ export function createAutocomplete(editor) {
             },
             trigger: '@',
             selectClass: 'tribute-highlight',
-            containerClass: `tribute-container-${index}`,
+            containerClass: `tribute-container-${index}${darkMode ? ' imatic-formatting-dark' : ''}`,
             itemClass: 'tribute-item',
             lookup: 'key',
             fillAttr: 'value',
