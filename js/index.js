@@ -1,20 +1,18 @@
-import { getSettings } from "./utils/mentionDom";
-import { hasDarkBackground } from "./utils/theme";
-import { createAutocomplete } from "./autocomplete";
-import { createAutocompleteWithoutToastUI } from "./autocomplete/autocompleteWithoutToastUI";
-import '@toast-ui/editor/dist/toastui-editor.css';
-import '@toast-ui/editor/dist/theme/toastui-editor-dark.css';
-import Editor from '@toast-ui/editor';
+import Vditor from 'vditor';
+import 'vditor/dist/index.css';
+import { createEditorAutocomplete } from './autocomplete';
+import { createAutocompleteWithoutEditor } from './autocomplete/autocompleteWithoutEditor';
+import { getSettings } from './utils/mentionDom';
+import { hasDarkBackground } from './utils/theme';
 
-function trimMarkdownDoubleClickSelection(editorContent) {
+function trimContentEditableDoubleClickSelection(editorContent) {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) return;
 
     const range = selection.getRangeAt(0);
     if (!editorContent.contains(range.commonAncestorContainer)) return;
 
-    const selectedText = range.toString();
-    const trailingWhitespace = selectedText.match(/[ \t\u00a0]+$/);
+    const trailingWhitespace = range.toString().match(/[ \t\u00a0]+$/);
     if (!trailingWhitespace) return;
 
     let remaining = trailingWhitespace[0].length;
@@ -41,121 +39,125 @@ function trimMarkdownDoubleClickSelection(editorContent) {
     }
 }
 
-function initEditor(textArea, settings, onReady) {
+function bindDoubleClickSelection(editor) {
+    const source = editor.vditor.sv.element;
+    source.addEventListener('dblclick', () => {
+        window.requestAnimationFrame(() => {
+            const selected = source.value.slice(source.selectionStart, source.selectionEnd);
+            const trailingWhitespace = selected.match(/[ \t]+$/);
+            if (trailingWhitespace) {
+                source.selectionEnd -= trailingWhitespace[0].length;
+            }
+        });
+    });
 
-    const editorBarOffset = 70;
+    [editor.vditor.ir.element, editor.vditor.wysiwyg.element].forEach(editorContent => {
+        editorContent.addEventListener('dblclick', () => {
+            window.requestAnimationFrame(() => trimContentEditableDoubleClickSelection(editorContent));
+        });
+    });
+}
 
+function applyEditorBackground(editor, editorContainer, backgroundColor) {
+    editorContainer.style.backgroundColor = backgroundColor;
+    [
+        editor.vditor.sv.element,
+        editor.vditor.ir.element,
+        editor.vditor.wysiwyg.element,
+        editor.vditor.preview.element,
+    ].forEach(element => {
+        element.style.backgroundColor = backgroundColor;
+    });
+}
+
+function initEditor(textArea, settings, darkMode) {
+    const options = settings.options || {};
+    const computedStyle = window.getComputedStyle(textArea);
+    const baseHeight = parseFloat(computedStyle.height) || 300;
     const editorContainer = document.createElement('div');
-    editorContainer.id = 'editor';
+    editorContainer.className = 'imatic-vditor';
     textArea.parentNode.insertBefore(editorContainer, textArea.nextSibling);
 
-    const computedStyle = window.getComputedStyle(textArea);
-    const baseHeight = parseFloat(computedStyle.height);
-    const darkMode = hasDarkBackground(textArea);
-
-    const heightValue = settings.options.height ? settings.options.height : baseHeight + editorBarOffset;
-
-    const savedText = textArea.value || '';
-
-    const editor = new Editor({
-        el: editorContainer,
-        theme: darkMode ? 'dark' : 'light',
-        initialEditType: settings.options.initialEditType || 'markdown',
-        initialValue: savedText,
-        previewStyle: settings.options.previewStyle || 'tab',
-        customHTMLSanitizer: settings.options.useDefaultHTMLSanitizer === false
-            ? html => DOMPurify.sanitize(html, settings.options.useDefaultHTMLSanitizerOptions)
-            : undefined,
-        useCommandShortcut: settings.options.useCommandShortcut || false,
-        useDefaultHTMLSanitizerOptions: settings.options.useDefaultHTMLSanitizerOptions || {},
-        toolbarItems: settings.options.toolbarItems || [
-            ['heading', 'bold', 'italic', 'strike'],
-            ['hr', 'quote', 'ul', 'ol', 'task'],
-            ['table', 'link'],
-            ['code', 'codeblock'],
-            ['scrollSync']
-        ],
-        autofocus: false,
-        hooks: {
-            addImageBlobHook: function (blob, callback) {
-                return false;
-            }
-        }
+    let editor;
+    editor = new Vditor(editorContainer, {
+        cache: { enable: false },
+        cdn: settings.assets.base,
+        icon: 'ant',
+        lang: 'en_US',
+        value: textArea.value || '',
+        mode: ['sv', 'wysiwyg', 'ir'].includes(options.mode) ? options.mode : 'sv',
+        height: options.height || baseHeight + 70,
+        theme: darkMode ? 'dark' : 'classic',
+        toolbar: options.toolbar,
+        toolbarConfig: { pin: false },
+        resize: { enable: true, position: 'bottom' },
+        hint: {
+            emoji: {},
+            emojiPath: '',
+            extend: [],
+        },
+        preview: {
+            actions: [],
+            mode: options.previewMode === 'both' ? 'both' : 'editor',
+            hljs: { enable: false },
+            markdown: {
+                codeBlockPreview: false,
+                mathBlockPreview: false,
+                sanitize: options.sanitize !== false,
+            },
+            render: { media: { enable: false } },
+            theme: {
+                current: darkMode ? 'dark' : 'light',
+                path: `${settings.assets.base}/dist/css/content-theme`,
+            },
+        },
+        image: { isPreview: false },
+        input(markdown) {
+            textArea.value = markdown;
+            textArea.dispatchEvent(new Event('input', { bubbles: true }));
+            textArea.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+        after() {
+            applyEditorBackground(editor, editorContainer, computedStyle.backgroundColor);
+            bindDoubleClickSelection(editor);
+            createEditorAutocomplete(editor, darkMode);
+            textArea.style.display = 'none';
+        },
     });
-    editor.on('change', () => {
-        textArea.value = editor.getMarkdown();
 
-        textArea.dispatchEvent(new Event('input', { bubbles: true }));
-        textArea.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const viewStatusElements = [
+        document.getElementById('bugnote_add_view_status'),
+        document.getElementById('private'),
+    ].filter(Boolean);
 
-    const markdownEditor = editorContainer.querySelector('.toastui-editor-md-container .ProseMirror');
-    if (markdownEditor) {
-        markdownEditor.addEventListener('dblclick', () => {
-            window.requestAnimationFrame(() => trimMarkdownDoubleClickSelection(markdownEditor));
+    viewStatusElements.forEach(viewStatus => {
+        viewStatus.addEventListener('change', () => {
+            if (!editor.vditor) return;
+            applyEditorBackground(
+                editor,
+                editorContainer,
+                window.getComputedStyle(textArea).backgroundColor,
+            );
         });
-    }
-
-    createAutocomplete(editor, darkMode)
-
-    if (typeof onReady === 'function') {
-        onReady(editor, editorContainer, computedStyle);
-    }
+    });
 
     return editor;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-
     const settings = getSettings();
+    const configuredIds = Array.isArray(settings.textAreas) ? settings.textAreas : [];
+    const darkMode = hasDarkBackground(document.body);
 
-    if (!settings.enabled) return;
-
-
-    if (!settings.enabledForUser) {
-        createAutocompleteWithoutToastUI();
+    if (!settings.enabled || !settings.enabledForUser) {
+        createAutocompleteWithoutEditor();
         return;
     }
 
-    settings.textAreas.forEach(id => {
-
-        const textarea = document.getElementById(id);
-
-        if (!textarea) return;
-
-        initEditor(textarea, settings, (editorInstance, editorContainer, computedStyle) => {
-
-            let editorForChangeBgColor = editorContainer;
-
-            if (settings.options.initialEditType === 'wysiwyg') {
-                const wwMode = editorContainer.querySelector('.toastui-editor.ww-mode');
-                if (wwMode) {
-                    editorForChangeBgColor = wwMode;
-                    wwMode.style.backgroundColor = computedStyle.backgroundColor;
-                }
-            } else if (settings.options.initialEditType === 'markdown') {
-                const mdMode = editorContainer.querySelector('.toastui-editor.md-mode');
-                if (mdMode) {
-                    editorForChangeBgColor = mdMode;
-                    mdMode.style.backgroundColor = computedStyle.backgroundColor;
-                }
-            }
-            textarea.style.display = 'none';
-
-            const viewStatusElements = [
-                document.getElementById('bugnote_add_view_status'),
-                document.getElementById('private')
-            ].filter(Boolean);
-
-            viewStatusElements.forEach(viewStatus => {
-                viewStatus.addEventListener('change', () => {
-                    const computedStyle = window.getComputedStyle(textarea);
-                    editorForChangeBgColor.style.backgroundColor = computedStyle.backgroundColor;
-                });
-            });
-        });
+    configuredIds.forEach(id => {
+        const textArea = document.getElementById(id);
+        if (textArea) initEditor(textArea, settings, darkMode);
     });
+
+    createAutocompleteWithoutEditor(configuredIds);
 });
-
-
-

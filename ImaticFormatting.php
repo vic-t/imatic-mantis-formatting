@@ -12,12 +12,14 @@ use League\CommonMark\MarkdownConverterInterface;
 
 class ImaticFormattingPlugin extends MantisPlugin
 {
-    const TOASTUI_ENABLED = 'plugin_ImaticFormatting_toastui_enabled';
+    const VDITOR_ENABLED = 'plugin_ImaticFormatting_vditor_enabled';
+    const LEGACY_TOASTUI_ENABLED = 'plugin_ImaticFormatting_toastui_enabled';
+
     public function register(): void
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.3.8';
+        $this->version = '0.4.0';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];
@@ -43,28 +45,123 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         return [
             'include_prism' => true,
-            'toastui_editor' => [
-                'enabled' => true,
-                'textAreas' => [
-                    'description',
-                    'steps_to_reproduce',
-                    'additional_info',
-                    'additional_information',
-                    'bugnote_text'
-                ],
-                'options' => [
-                    'initialEditType' => 'markdown', # 'markdown' or 'wysiwyg'
-                    'previewStyle' => 'tab', # 'tab' or 'vertical'
-                    'height' => false, // SET NUMBER or false for default height from mantisbt + BAR height
-                    'useDefaultHTMLSanitizer' => true,
-                    'useCommandShortcut' => true,
-                    'useDefaultHTMLSanitizerOptions' => [
-                        'allowAttributes' => ['class', 'style'],
-                        'allowTags' => ['a', 'b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
-                    ],
-                ],
-            ]
+            // Null defaults let explicit legacy configuration remain detectable.
+            'vditor_editor' => null,
+            'toastui_editor' => null,
         ];
+    }
+
+    private function getDefaultEditorConfig(): array
+    {
+        return [
+            'enabled' => true,
+            'textAreas' => [
+                'description',
+                'steps_to_reproduce',
+                'additional_info',
+                'additional_information',
+                'bugnote_text',
+            ],
+            'options' => [
+                'mode' => 'sv',
+                'previewMode' => 'editor',
+                'height' => false,
+                'sanitize' => true,
+                'toolbar' => [
+                    'headings', 'bold', 'italic', 'strike', '|',
+                    'line', 'quote', 'list', 'ordered-list', 'check', '|',
+                    'table', 'link', '|', 'inline-code', 'code', '|',
+                    'undo', 'redo', '|', 'edit-mode', 'both', 'preview',
+                ],
+            ],
+        ];
+    }
+
+    private function mapLegacyToolbar(array $groups): array
+    {
+        $map = [
+            'heading' => 'headings',
+            'hr' => 'line',
+            'ul' => 'list',
+            'ol' => 'ordered-list',
+            'task' => 'check',
+            'code' => 'inline-code',
+            'codeblock' => 'code',
+            'scrollSync' => 'both',
+        ];
+        $toolbar = [];
+
+        foreach ($groups as $group) {
+            $items = is_array($group) ? $group : [$group];
+            $mapped = [];
+            foreach ($items as $item) {
+                if (is_string($item)) {
+                    $mapped[] = $map[$item] ?? $item;
+                }
+            }
+
+            if ($mapped) {
+                if ($toolbar) {
+                    $toolbar[] = '|';
+                }
+                $toolbar = array_merge($toolbar, $mapped);
+            }
+        }
+
+        return $toolbar;
+    }
+
+    private function getEditorConfig(): array
+    {
+        $defaults = $this->getDefaultEditorConfig();
+        $config = plugin_config_get('vditor_editor', null, true);
+
+        if (is_array($config)) {
+            $normalized = array_replace_recursive($defaults, $config);
+            if (isset($config['textAreas']) && is_array($config['textAreas'])) {
+                $normalized['textAreas'] = array_values($config['textAreas']);
+            }
+            if (isset($config['options']['toolbar']) && is_array($config['options']['toolbar'])) {
+                $normalized['options']['toolbar'] = array_values($config['options']['toolbar']);
+            }
+
+            return $normalized;
+        }
+
+        $legacy = plugin_config_get('toastui_editor', null, true);
+        if (!is_array($legacy)) {
+            return $defaults;
+        }
+
+        $legacyOptions = isset($legacy['options']) && is_array($legacy['options'])
+            ? $legacy['options']
+            : [];
+        $mapped = [
+            'enabled' => $legacy['enabled'] ?? $defaults['enabled'],
+            'textAreas' => $legacy['textAreas'] ?? $defaults['textAreas'],
+            'options' => [
+                'mode' => ($legacyOptions['initialEditType'] ?? 'markdown') === 'wysiwyg'
+                    ? 'wysiwyg'
+                    : 'sv',
+                'previewMode' => ($legacyOptions['previewStyle'] ?? 'tab') === 'vertical'
+                    ? 'both'
+                    : 'editor',
+                'height' => $legacyOptions['height'] ?? false,
+                'sanitize' => true,
+            ],
+        ];
+
+        if (isset($legacyOptions['toolbarItems']) && is_array($legacyOptions['toolbarItems'])) {
+            $mapped['options']['toolbar'] = $this->mapLegacyToolbar($legacyOptions['toolbarItems']);
+        }
+
+        $normalized = array_replace_recursive($defaults, $mapped);
+        $normalized['textAreas'] = array_values($mapped['textAreas']);
+        if (isset($mapped['options']['toolbar'])) {
+            $normalized['options']['toolbar'] = array_values($mapped['options']['toolbar']);
+        }
+
+        return $normalized;
     }
 
     private function getOneLineConverter(): MarkdownConverterInterface
@@ -217,19 +314,19 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         echo '<tr>' .
             '<td class="category">' .
-            '<label for="ToastUIEnabled">Toast UI</label>' .
+            '<label for="VditorEnabled">Vditor</label>' .
             '</td>' .
             '<td>' .
-            '<input id="ToastUIEnabled" type="checkbox" name="' . self::TOASTUI_ENABLED . '" value="1" ' . ($this->is_enabled($p_user_id) ? 'checked' : '') . '/>' .
+            '<input id="VditorEnabled" type="checkbox" name="' . self::VDITOR_ENABLED . '" value="1" ' . ($this->is_enabled($p_user_id) ? 'checked' : '') . '/>' .
             '</td>' .
             '</tr>';
     }
 
     public function account_update($p_event, $p_user_id)
     {
-        $value = gpc_get_bool(self::TOASTUI_ENABLED, false);
+        $value = gpc_get_bool(self::VDITOR_ENABLED, false);
 
-        config_set(self::TOASTUI_ENABLED, (int)$value, $p_user_id, ALL_PROJECTS);
+        config_set(self::VDITOR_ENABLED, (int)$value, $p_user_id, ALL_PROJECTS);
     }
 
     public function is_enabled($p_user_id = null)
@@ -247,11 +344,20 @@ class ImaticFormattingPlugin extends MantisPlugin
         }
 
         $user_setting = config_get(
-            self::TOASTUI_ENABLED,
+            self::VDITOR_ENABLED,
             null,
             $p_user_id,
             ALL_PROJECTS
         );
+
+        if ($user_setting === null) {
+            $user_setting = config_get(
+                self::LEGACY_TOASTUI_ENABLED,
+                null,
+                $p_user_id,
+                ALL_PROJECTS
+            );
+        }
 
         return $user_setting === null ? true : (bool)$user_setting;
     }
@@ -363,14 +469,15 @@ class ImaticFormattingPlugin extends MantisPlugin
 
     public function layout_end_resources_hook()
     {
-        $config = plugin_config_get('toastui_editor', [], true);
+        $config = $this->getEditorConfig();
         $config['enabledForUser'] = $this->is_enabled();
-        $config['mentionUsers'] = !empty($config['enabled']) ? $this->getMentionUsers() : [];
-        $config = htmlspecialchars(json_encode($config));
+        $config['mentionUsers'] = $this->getMentionUsers();
+        $config['assets'] = [
+            'base' => plugin_file('vditor'),
+        ];
+        $encodedConfig = htmlspecialchars(json_encode($config), ENT_QUOTES, 'UTF-8');
 
-        return '<link rel="stylesheet" type="text/css" href="' . plugin_file('toast/toastui-editor.min.css') . '&v=' . $this->version . '" />
-                <link rel="stylesheet" type="text/css" href="' . plugin_file('toast/custom.css') . '&v=' . $this->version . '" />'
-            . '<script type="text/javascript" src="' . plugin_file('toast/toastui-editor.min.js') . '&v=' . $this->version . '"></script>
-		        <script  id="imaticFormatting" data-data="' . $config . '" type="text/javascript" src="' . plugin_file('main.js') . '&v=' . $this->version . '"></script>';
+        return '<link rel="stylesheet" type="text/css" href="' . plugin_file('editor.css') . '&v=' . $this->version . '" />'
+            . '<script id="imaticFormatting" data-data="' . $encodedConfig . '" type="text/javascript" src="' . plugin_file('main.js') . '&v=' . $this->version . '"></script>';
     }
 }

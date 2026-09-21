@@ -1,111 +1,107 @@
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](https://spdx.org/licenses/GPL-2.0-or-later.html)
 
-# Imatic formatting
+# Imatic Formatting
 
-## Purpose
-
-Converts markdown into html.
+Converts Markdown to HTML and adds a Vditor Markdown/WYSIWYG editor to MantisBT.
 
 ## Installation
 
-Run this from the MantisBT 2.28.4 installation directory:
+The release archive is ready to install without Composer, npm, or external CDN access:
+
+1. Download `ImaticFormatting-<version>.zip` from the GitHub release.
+2. Extract its `ImaticFormatting` directory into the MantisBT `plugins` directory.
+3. Register **Imatic Formatting** under **Manage > Manage Plugins**.
+
+To install from a source checkout instead, run:
+
+```shell
+composer install --no-dev
+npm ci
+npm run build:prod
+```
+
+The Composer package can also be installed from the MantisBT directory:
 
 ```shell
 composer require imatic-it/imatic-formatting:dev-master
 ```
 
-Alternatively, place the plugin in `plugins/ImaticFormatting` and run
-`composer install --no-dev` in that directory.
+## Vditor
 
-## Code highlighting
+Vditor and all required runtime assets are bundled locally. The browser does not contact a public CDN.
 
-Following url was used to fetch code highlighting code: https://prismjs.com/download.html#themes=prism&languages=markup+css+clike+javascript+bash+clojure+markup-templating+php+sql
-
-It can be disabled with:
-```php
-$g_plugin_ImaticFormatting_include_prism = false;
-```
-
-
-## ToastUI Editor (WYSIWYG)
-
-This plugin integrates ToastUI Editor to provide a modern WYSIWYG and Markdown editor for text areas in MantisBT.
-
-You can enable or configure the editor in your plugin config.
-Example:
+Configure the editor with `$g_plugin_ImaticFormatting_vditor_editor`:
 
 ```php
-public function config(): array
-{
-    return [
-        'include_prism' => true,
-        'toastui_editor' => [
-            'enabled' => true,
-            'textAreas'=> [
-                'description',
-                'additional_info',
-                'additional_information',
-                'bugnote_text'
-            ],
-            'options' => [
-                'initialEditType' => 'markdown', // 'markdown' or 'wysiwyg'
-                'previewStyle' => 'tab', // 'tab' or 'vertical'
-                'height' => false, // Use false for default height
-                'useDefaultHTMLSanitizer' => true,
-                'useCommandShortcut' => true,
-                'useDefaultHTMLSanitizerOptions' => [
-                    'allowAttributes' => ['class', 'style'],
-                    'allowTags' => ['a', 'b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
-                ],
-            ],
-        ]
-    ];
-}
+$g_plugin_ImaticFormatting_vditor_editor = [
+    'enabled' => true,
+    'textAreas' => [
+        'description',
+        'steps_to_reproduce',
+        'additional_info',
+        'additional_information',
+        'bugnote_text',
+    ],
+    'options' => [
+        'mode' => 'sv', // sv, wysiwyg, or ir
+        'previewMode' => 'editor', // editor or both
+        'height' => false, // false derives the height from the MantisBT textarea
+        'sanitize' => true,
+        'toolbar' => [
+            'headings', 'bold', 'italic', 'strike', '|',
+            'line', 'quote', 'list', 'ordered-list', 'check', '|',
+            'table', 'link', '|', 'inline-code', 'code', '|',
+            'undo', 'redo', '|', 'edit-mode', 'both', 'preview',
+        ],
+    ],
+];
 ```
 
-### Features
-- Markdown and WYSIWYG editing mode
-- Live preview (tab or vertical split)
-- Custom HTML sanitization with [DOMPurify](https://github.com/cure53/DOMPurify)
-- Optional keyboard shortcuts
-- Automatic synchronization with MantisBT text areas
+The default `sv` mode provides raw Markdown editing. The preview button switches between editing and rendered preview, while `previewMode => 'both'` displays a vertical split view.
 
+Existing `$g_plugin_ImaticFormatting_toastui_editor` configuration remains supported as a fallback. Existing per-user Toast UI enable/disable preferences are also honored until the user saves the new Vditor preference.
 
+Toast UI's custom DOMPurify allow-list and global shortcut-disable options have no direct Vditor equivalents. Vditor's built-in Markdown sanitization is enabled by default.
 
-## User mentions (autocomplete)
+## User Mentions
 
-When typing `@` in any supported text area, the plugin shows an autocomplete dropdown of enabled users who can view the current project or issue, regardless of whether they can be assigned as its handler. Selecting a friendly display name always inserts the account's actual `@username`.
+Typing `@` in a supported field shows enabled users who can view the current project or issue. Selecting a friendly display name inserts the account's actual `@username`.
 
-Supported text areas (both plain and ToastUI/WYSIWYG mode):
+Supported fields include:
 
 - `#summary`
 - `#description`
 - `#steps_to_reproduce`
-- `#additional_info`, `#additional_information`
+- `#additional_info` and `#additional_information`
 - `#bugnote_text`
 
-The autocomplete UI is powered by [Tribute.js](https://github.com/zurb/tribute) (bundled, no runtime CDN).
+Autocomplete uses the locally bundled Tribute.js in Vditor and plain textarea modes. Mention rendering and notifications are handled by MantisBT's `mention_format_text()` implementation.
 
-Mention rendering and notifications are handled by MantisBT core: after the markdown converter runs, the plugin pipes the output through `mention_format_text()`, which turns `@username` into a clickable link and (when `$g_enable_user_mention` is enabled in MantisBT config) sends the standard mention notification to that user. See the [MantisBT User Mention configuration](https://www.mantisbt.org/docs/master/en-US/Admin_Guide/html-desktop/admin.preferences.usermention.html) for the notification settings.
+## Code Highlighting
 
+Prism code highlighting can be disabled with:
 
-## Preview Test Pages
+```php
+$g_plugin_ImaticFormatting_include_prism = false;
+```
 
-The plugin provides **test pages** where you can see how your Markdown and HTML formatting will be rendered before using it in actual issues.
+## Release Package
 
-1. Navigate to the **Plugin Configuration Page**:
-   `Manage -> Manage Plugins -> Imatic Formatting`
+Create a production build and ready-to-install archive with:
 
-2. Click on **"Test Issue Formatting Preview"** or open directly:
-   [/plugin.php?page=ImaticFormatting/test-issue-previews](./plugin.php?page=ImaticFormatting/test-issue-previews)
+```shell
+npm ci
+npm run release
+```
 
-3. You will find several preview sections:
+This writes `dist/ImaticFormatting-<version>.zip` and its SHA-256 checksum. Composer is required only on the build machine. Pushing a `v*` tag runs the same process in GitHub Actions and attaches the artifacts to the GitHub release.
 
-   - 📧 **HTML Rendered Preview** – see how HTML emails will render
-   - 📝 **Plain Text Preview** – view the plain text formatting
-   - ⚠️ **Broken Format Preview** – simulate text without plugin formatting
-   - 🔗 **Link Rendering & Query Parameters** – test links including query strings and `&` characters
-   - 🖋️ **Markdown Preview** – test all Markdown elements including headings, lists, blockquotes, code blocks, tables, images, links, and horizontal rules
+## Preview Pages
 
-This is useful for verifying your formatting rules, link handling, WYSIWYG editor integration, and Markdown rendering be
+Rendered formatting examples are available under **Manage > Manage Plugins > Imatic Formatting**, or directly at:
 
+```text
+/plugin.php?page=ImaticFormatting/test-issue-previews
+```
+
+These pages test server-side Markdown and HTML rendering. Editor behavior should be tested on normal MantisBT issue and bugnote forms.
