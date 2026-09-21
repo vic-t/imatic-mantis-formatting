@@ -119,6 +119,13 @@ console.log("Hello from JS");
 | 123  | 456    | 789   |
 
 
+## Headerless table syntax remains plain text
+
+|-----------|-----|------------|
+| John Doe | 30 | New York |
+| Jane Doe | 25 | Los Angeles |
+
+
 EOD,
         'project' => [
             'id' => 4,

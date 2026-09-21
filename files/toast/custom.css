@@ -417,3 +417,19 @@
     background: #232428 !important;
     border-bottom-color: #303238;
 }
+
+.imatic-formatting-table {
+    overflow-x: auto;
+}
+
+.imatic-formatting-table > table,
+.imatic-formatting-table > table tr,
+.imatic-formatting-table > table th,
+.imatic-formatting-table > table td {
+    background-color: transparent !important;
+    color: inherit !important;
+}
+
+.imatic-formatting-table > table thead th {
+    background-color: rgba(127, 127, 127, 0.2) !important;
+}

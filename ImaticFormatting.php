@@ -17,7 +17,7 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.3.6';
+        $this->version = '0.3.7';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];
@@ -94,6 +94,14 @@ class ImaticFormattingPlugin extends MantisPlugin
             $converter = \ImaticFormatting\Checkbox\CheckboxMarkdown::createConverter([
                 'html_input' => 'allow',
                 'allow_unsafe_links' => false,
+                'table' => [
+                    'wrap' => [
+                        'enabled' => true,
+                        'attributes' => [
+                            'class' => 'imatic-formatting-table',
+                        ],
+                    ],
+                ],
             ]);
         }
 
