@@ -1,8 +1,3 @@
-
-export function sanitizeHandlerName(name) {
-    return name.replace(/^[^\w\[]+\s*/, '');
-}
-
 export function getMentionQuery(text, offset) {
     const textBeforeCaret = text.slice(0, offset);
     const indexOfAt = textBeforeCaret.lastIndexOf('@');

@@ -17,7 +17,7 @@ class ImaticFormattingPlugin extends MantisPlugin
     {
         $this->name = 'Imatic formatting';
         $this->description = 'Formatting';
-        $this->version = '0.3.7';
+        $this->version = '0.3.8';
         $this->requires = [
             'MantisCore' => '2.0.0',
         ];
@@ -256,10 +256,116 @@ class ImaticFormattingPlugin extends MantisPlugin
         return $user_setting === null ? true : (bool)$user_setting;
     }
 
+    private function getMentionUsers(): array
+    {
+        if (!auth_is_user_authenticated() || current_user_is_anonymous()) {
+            return [];
+        }
+
+        $page = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        $issueIds = [];
+        $bugnoteId = 0;
+        if (gpc_isset('bug_id')) {
+            $issueIds[] = gpc_get_int('bug_id');
+        } elseif (in_array($page, ['view.php', 'bug_change_status_page.php'], true) && gpc_isset('id')) {
+            $issueIds[] = gpc_get_int('id');
+        } elseif ($page === 'bugnote_edit_page.php' && gpc_isset('bugnote_id')) {
+            $bugnoteId = gpc_get_int('bugnote_id');
+            if (bugnote_exists($bugnoteId)) {
+                $issueIds[] = (int)bugnote_get_field($bugnoteId, 'bug_id');
+            }
+        } elseif ($page === 'bug_actiongroup_page.php' && gpc_isset('bug_arr')) {
+            $issueIds = gpc_get_int_array('bug_arr', []);
+        }
+
+        $currentUserId = auth_get_current_user_id();
+        $issues = [];
+        $issueProjectIds = [];
+        foreach (array_unique($issueIds) as $issueId) {
+            if ($issueId <= 0 || !bug_exists($issueId)) {
+                continue;
+            }
+
+            $issue = bug_get($issueId);
+            $viewThreshold = config_get('view_bug_threshold', null, $currentUserId, $issue->project_id);
+
+            if (access_has_bug_level($viewThreshold, $issueId, $currentUserId)) {
+                $issues[$issueId] = $issue;
+                $issueProjectIds[$issue->project_id] = $issue->project_id;
+            }
+        }
+
+        $projectId = helper_get_current_project();
+        $projectIds = $issues
+            ? array_values($issueProjectIds)
+            : ($projectId == ALL_PROJECTS
+                ? user_get_all_accessible_projects($currentUserId)
+                : [$projectId]);
+        $users = [];
+
+        foreach ($projectIds as $candidateProjectId) {
+            $projectUsers = project_get_all_user_rows($candidateProjectId, ANYBODY);
+
+            foreach ($projectUsers as $userId => $user) {
+                $users[$userId] = $user;
+            }
+        }
+
+        foreach ($users as $userId => $user) {
+            if ($issues) {
+                foreach ($issues as $issueId => $issue) {
+                    $viewThreshold = config_get('view_bug_threshold', null, $userId, $issue->project_id);
+                    $canView = $bugnoteId > 0
+                        ? access_has_bugnote_level($viewThreshold, $bugnoteId, $userId)
+                        : access_has_bug_level($viewThreshold, $issueId, $userId);
+
+                    if (!$canView) {
+                        unset($users[$userId]);
+                        break;
+                    }
+                }
+            } else {
+                $canViewProject = false;
+                foreach ($projectIds as $candidateProjectId) {
+                    $viewThreshold = config_get('view_bug_threshold', null, $userId, $candidateProjectId);
+                    if (access_has_project_level($viewThreshold, $candidateProjectId, $userId)) {
+                        $canViewProject = true;
+                        break;
+                    }
+                }
+
+                if (!$canViewProject) {
+                    unset($users[$userId]);
+                }
+            }
+        }
+
+        $showRealNames = config_get('show_realname') == ON;
+        $getDisplayName = function (array $user) use ($showRealNames): string {
+            if ($showRealNames && trim($user['realname']) !== '') {
+                return $user['realname'] . ' (' . $user['username'] . ')';
+            }
+
+            return $user['username'];
+        };
+
+        uasort($users, function (array $left, array $right) use ($getDisplayName): int {
+            return strcasecmp($getDisplayName($left), $getDisplayName($right));
+        });
+
+        return array_values(array_map(function (array $user) use ($getDisplayName): array {
+            return [
+                'key' => $user['username'],
+                'value' => htmlspecialchars($getDisplayName($user), ENT_QUOTES, 'UTF-8'),
+            ];
+        }, $users));
+    }
+
     public function layout_end_resources_hook()
     {
         $config = plugin_config_get('toastui_editor', [], true);
         $config['enabledForUser'] = $this->is_enabled();
+        $config['mentionUsers'] = !empty($config['enabled']) ? $this->getMentionUsers() : [];
         $config = htmlspecialchars(json_encode($config));
 
         return '<link rel="stylesheet" type="text/css" href="' . plugin_file('toast/toastui-editor.min.css') . '&v=' . $this->version . '" />

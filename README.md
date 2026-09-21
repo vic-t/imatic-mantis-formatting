@@ -74,7 +74,7 @@ public function config(): array
 
 ## User mentions (autocomplete)
 
-When typing `@` in any supported text area, the plugin shows an autocomplete dropdown of assignable users in the current project so you can quickly insert `@username` mentions. The user list is derived from MantisBT's assignee selector (`select[name="handler_id"]`), so only users that can be set as a handler in the current project context are offered — special pseudo-entries such as `[Myself]` and `[Reporter]` are filtered out.
+When typing `@` in any supported text area, the plugin shows an autocomplete dropdown of enabled users who can view the current project or issue, regardless of whether they can be assigned as its handler. Selecting a friendly display name always inserts the account's actual `@username`.
 
 Supported text areas (both plain and ToastUI/WYSIWYG mode):
 

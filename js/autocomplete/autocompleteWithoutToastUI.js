@@ -1,9 +1,9 @@
-import { getHandlerForMention } from "../utils/mentionDom";
+import { getUsersForMention } from "../utils/mentionDom";
 import { hasDarkBackground } from "../utils/theme";
 import Tribute from "tributejs";
 
 export function createAutocompleteWithoutToastUI(editor) {
-    const handlers = getHandlerForMention();
+    const handlers = getUsersForMention();
     const editorContents = document.querySelectorAll('#bugnote_text, #description, #steps_to_reproduce, #additional_info, #summary, #additional_information');
     const tributeInstances = [];
     let isActive = false;
@@ -69,7 +69,7 @@ export function createAutocompleteWithoutToastUI(editor) {
             values: (text, cb) => {
                 const filtered = handlers
                     .filter(user => user.key.toLowerCase().startsWith(text.toLowerCase()))
-                    .map(user => ({ key: user.value, value: user.key }));
+                    .map(user => ({ key: user.key, value: user.key, label: user.value }));
                 const tributeContainer = document.querySelector(`.tribute-container-${index}`);
                 if (filtered.length === 0 && tributeContainer) {
                     tributeContainer.style.display = 'none';
@@ -93,7 +93,7 @@ export function createAutocompleteWithoutToastUI(editor) {
                 return '@' + item.original.value + ' ';
             },
             menuItemTemplate: function (item) {
-                return item.string;
+                return item.original.label;
             },
             menuShowMinLength: 1,
             allowSpaces: false,
